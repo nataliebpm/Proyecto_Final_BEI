@@ -8,4 +8,3 @@ Contenido de las carpetas:
 - `results/`: Carpeta donde se deben guardar los resultados obtenidos de los análisis.
 
 
-
