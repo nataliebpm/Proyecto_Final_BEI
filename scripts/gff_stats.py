@@ -36,17 +36,30 @@ def load_parser():
 #Función para contar las features según tipo de Feature
 def count_features_by_type(df_gff):
     for feature_type in df_gff["feature_type"].unique():
-        dict_feature_type = df_gff[df_gff["feature_type"] == feature_type].value_counts().to_dict()
+        dict_feature_type = len(df_gff[df_gff["feature_type"] == feature_type].value_counts())
     return dict_feature_type
 
 #Función para obtener el promedio de longitud de las features según tipo de Feature
 def average_length_by_type(df_gff, dict_feature_type):
-    for feature_type in df_gff["feature_type"].unique():
-        dict_feature_type["lengths"] = df_gff["coord_end"] - df_gff["coord_start"] + 1
-        df_filtered = df_gff[df_gff["feature_type"] == feature_type]
-        coords_length = df_filtered["coord_end"] - df_filtered["coord_start"] + 1
-        average_length = df_gff.lengths.mean()
-    return average_length
+    df_gff = df_gff.copy()
+    df_gff.copy["length"] = df_gff["coord_end"] - df_gff["coord_start"] + 1
+    avg_lengths = df_gff.groupby("feature_type")["length"].mean().to_dict()
+    return avg_lengths
+
+#Función para obtener la clasificación de las Features según el strand
+def strand_classification(df_gff, dict_feature_type):
+    # Agrupar por feature_type y strand
+    strand_counts = df_gff.groupby(["feature_type", "strand"]).size().unstack(fill_value=0)
+
+    # Crear diccionario final
+    strand_classification = {}
+    for feature_type in dict_feature_type.keys():
+        if feature_type in strand_counts.index:
+            strand_classification[feature_type] = strand_counts.loc[feature_type].to_dict()
+        else:
+            strand_classification[feature_type] = {"+": 0, "-": 0} 
+    return strand_classification
+
 
 
 
@@ -54,15 +67,31 @@ def average_length_by_type(df_gff, dict_feature_type):
 # ------------------------------------------------ Main ------------------------------------------------
 
 if __name__ == "__main__":
-    args = load_parser().parse_args()
+    parser = load_parser()
+    args = parser.parse_args()
 
     df_gff = load_gff(args.gff)
 
-    gene_seqs = count_features_by_type(df_gff, args.filter_type)
+    counts = count_features_by_type(df_gff)
+
+    avg_lengths = average_length_by_type(df_gff)
+
+    strand_stats = strand_classification(df_gff, counts)
+
+    stats = {}
+    for feature_type in counts:
+        stats[feature_type] = {
+            "count": counts[feature_type],
+            "average_length": avg_lengths.get(feature_type, 0),
+            "strand": strand_stats.get(feature_type, {})
+        }
 
     with open(args.output, "w") as out:
-        for attr, info in gene_seqs.items():
-            out.write(f">{attr} coords={info['coords']} strand={info['strand']} length={info['length']}\n")
-            out.write(info["seq"] + "\n")
+        out.write("Feature_type\tCount\tAverage_length\tStrand+\tStrand-\n")
+        for feature, info in stats.items():
+            strand_plus = info["strand"].get("+", 0)
+            strand_minus = info["strand"].get("-", 0)
+            out.write(f"{feature}\t{info['count']}\t{info['average_length']:.2f}\t{strand_plus}\t{strand_minus}\n")
 
-    print("Extracción completada.")
+    print("Cálculo completado. Resultados guardados en", args.output)
+
