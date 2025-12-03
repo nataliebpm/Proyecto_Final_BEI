@@ -4,8 +4,8 @@
 
 
 
-import pandas as pd
-import argparse
+import pandas as pd;
+import argparse;
 
 ############################################################################################################################################################
 #Creación de funciones: 
@@ -16,7 +16,7 @@ ruta_fasta = str(input("Ruta del archivo FASTA: "))
 ruta_gff = str(input("Ruta del archivo GFF: "))
 
 # Función para cargar los archivos
-def load_files(ruta_gff, ruta_fasta):
+def load_gff(ruta_gff, ruta_fasta):
     df_gff = pd.read_csv(ruta_gff,
         sep="\t",                # Separador tabulado
         comment="#",             # Ignorar líneas que comienzan con #
@@ -89,3 +89,24 @@ def extract_genes_seqs(df_fasta, df_gff):
             gene_seqs[gene.attributes] = sequence
     return gene_seqs
 df_gene_seqs = pd.DataFrame{gene_seqs}
+
+###################################################################################################################
+# ------------------------------- Creación de main -------------------------------
+
+if __name__ == "__main__":
+    args = load_parser()  #cargar parser
+
+    # cargar archivos usando tus funciones
+    df_gff = load_gff(args.gff, args.fasta)
+    df_fasta = fasta_conversion(args.fasta)
+
+    # extraer genes
+    gene_seqs = extract_genes_seqs(df_fasta, df_gff)
+
+    # escribir archivo de salida
+    with open(args.output, "w") as out:
+        for attr, info in gene_seqs.items():
+            out.write(f">{attr} gene_coords={info['coords']} strand={info['strand']}\n")
+            out.write(info["seq"] + "\n")
+
+    print("Extracción completada.")
