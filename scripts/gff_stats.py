@@ -4,14 +4,14 @@
 "author: Natalie B. Pineda Morán"
 "date: 03 diciembre 2025"
 
-# ---------------------------------- Librerías ----------------------------------
-
+# -------------------------------------Librerías-------------------------------------
 import pandas as pd
 import argparse 
 
-# --------------------------------- Funciones ------------------------------------
 
-# Cargar GFF y convertirlo a DataFrame
+# -------------------------------------- Funciones --------------------------------------
+
+# Cargar archivo GFF en un DataFrame de pandas
 def load_gff(ruta_gff):
     try:
         df_gff = pd.read_csv(
@@ -26,36 +26,33 @@ def load_gff(ruta_gff):
         )
     except FileNotFoundError:
         raise FileNotFoundError(f"No se encontró archivo GFF: {ruta_gff}")
-
     return df_gff
 
-#Configurar argparse
+# Configuración del parser de argumentos
 def load_parser():
     parser = argparse.ArgumentParser(description="Cálculo de estadísticas básicas de un archivo GFF.")
-    parser.add_argument("gff", type = str, help="Ruta del archivo GFF.")
-    parser.add_argument("output", type = str, help="Ruta del archivo de salida.")
-    parser.add_argument("--filter_type", type = str, help="Indica para cuáles Features quieres calcular estadísticas.")
+    parser.add_argument("gff", type=str, help="Ruta del archivo GFF.")
+    parser.add_argument("output", type=str, help="Ruta del archivo de salida.")
+    parser.add_argument("--filter_type", type=str, help="Indica para cuáles Features quieres calcular estadísticas.")
     return parser
 
-#Función para contar las features según tipo de Feature
+# Funciones para calcular estadísticas
 def count_features_by_type(df_gff):
+    dict_feature_type = {}
     for feature_type in df_gff["feature_type"].unique():
-        dict_feature_type = len(df_gff[df_gff["feature_type"] == feature_type].value_counts())
+        dict_feature_type[feature_type] = len(df_gff[df_gff["feature_type"] == feature_type])
     return dict_feature_type
 
-#Función para obtener el promedio de longitud de las features según tipo de Feature
-def average_length_by_type(df_gff, dict_feature_type):
+# Calcular la longitud promedio por tipo de feature
+def average_length_by_type(df_gff):
     df_gff = df_gff.copy()
-    df_gff.copy["length"] = df_gff["coord_end"] - df_gff["coord_start"] + 1
+    df_gff["length"] = df_gff["coord_end"] - df_gff["coord_start"] + 1
     avg_lengths = df_gff.groupby("feature_type")["length"].mean().to_dict()
     return avg_lengths
 
-#Función para obtener la clasificación de las Features según el strand
+# Clasificación por hebra
 def strand_classification(df_gff, dict_feature_type):
-    # Agrupar por feature_type y strand
     strand_counts = df_gff.groupby(["feature_type", "strand"]).size().unstack(fill_value=0)
-
-    # Crear diccionario final
     strand_classification = {}
     for feature_type in dict_feature_type.keys():
         if feature_type in strand_counts.index:
@@ -64,7 +61,8 @@ def strand_classification(df_gff, dict_feature_type):
             strand_classification[feature_type] = {"+": 0, "-": 0} 
     return strand_classification
 
-# ------------------------------------------------ Main ------------------------------------------------
+
+# -------------------------------------- Main --------------------------------------
 
 if __name__ == "__main__":
     parser = load_parser()
@@ -72,10 +70,11 @@ if __name__ == "__main__":
 
     df_gff = load_gff(args.gff)
 
+    if args.filter_type:
+        df_gff = df_gff[df_gff["feature_type"] == args.filter_type]
+
     counts = count_features_by_type(df_gff)
-
     avg_lengths = average_length_by_type(df_gff)
-
     strand_stats = strand_classification(df_gff, counts)
 
     stats = {}
