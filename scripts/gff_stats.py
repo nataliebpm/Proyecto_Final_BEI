@@ -1,3 +1,5 @@
+# ---------------------------------- Metadatos ----------------------------------
+
 "title:  Borrador de script para extraer genes de un archivo de datos genómicos usando argparse y pandas"
 "author: Natalie B. Pineda Morán"
 "date: 03 diciembre 2025"
@@ -7,7 +9,7 @@
 import pandas as pd
 import argparse 
 
-# ------------------------------ Funciones ------------------------------
+# --------------------------------- Funciones ------------------------------------
 
 # Cargar GFF y convertirlo a DataFrame
 def load_gff(ruta_gff):
@@ -92,4 +94,3 @@ if __name__ == "__main__":
             out.write(f"{feature}\t{info['count']}\t{info['average_length']:.2f}\t{strand_plus}\t{strand_minus}\n")
 
     print("Cálculo completado. Resultados guardados en", args.output)
-
