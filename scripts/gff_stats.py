@@ -14,9 +14,11 @@ import argparse
 # Cargar archivo GFF en un DataFrame de pandas
 def load_gff(ruta_gff):
     try:
+        # Cambié sep="\t" a sep="\s+" con engine="python" para manejar espacios o tabs
         df_gff = pd.read_csv(
             ruta_gff,
-            sep="\t",
+            sep="\s+",
+            engine="python",
             comment="#",
             header=None,
             names=[
@@ -24,6 +26,11 @@ def load_gff(ruta_gff):
                 "score", "strand", "phase", "attributes"
             ]
         )
+        # Convertir coordenadas a numéricas para evitar errores en el cálculo de longitud
+        df_gff["coord_start"] = pd.to_numeric(df_gff["coord_start"], errors="coerce")
+        df_gff["coord_end"] = pd.to_numeric(df_gff["coord_end"], errors="coerce")
+        # Eliminar filas con coordenadas no válidas
+        df_gff = df_gff.dropna(subset=["coord_start", "coord_end"])
     except FileNotFoundError:
         raise FileNotFoundError(f"No se encontró archivo GFF: {ruta_gff}")
     return df_gff
@@ -52,6 +59,8 @@ def average_length_by_type(df_gff):
 
 # Clasificación por hebra
 def strand_classification(df_gff, dict_feature_type):
+    # Contar strands correctamente aunque algunas filas no tengan strand
+    df_gff = df_gff[df_gff["strand"].isin(["+", "-"])]
     strand_counts = df_gff.groupby(["feature_type", "strand"]).size().unstack(fill_value=0)
     strand_classification = {}
     for feature_type in dict_feature_type.keys():
