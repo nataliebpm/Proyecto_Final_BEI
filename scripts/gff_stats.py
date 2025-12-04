@@ -1,12 +1,13 @@
 # ---------------------------------- Metadatos ------------------------------------------
 
-"title:  Borrador de script para extraer genes de un archivo de datos genómicos usando argparse y pandas"
+"title:  Script para extraer genes de un archivo de datos genómicos usando argparse y pandas"
 "author: Natalie B. Pineda Morán"
 "date: 03 diciembre 2025"
 
 # -------------------------------------Librerías-----------------------------------------
 import pandas as pd
-import argparse 
+import argparse
+import json  # agregado para generar JSON
 
 
 # -------------------------------------- Funciones --------------------------------------
@@ -14,7 +15,7 @@ import argparse
 # Cargar archivo GFF en un DataFrame de pandas
 def load_gff(ruta_gff):
     try:
-        # Cambié sep="\t" a sep="\s+" con engine="python" para manejar espacios o tabs
+        # Cambié sep="\s+" con engine="python" para manejar espacios o tabs
         df_gff = pd.read_csv(
             ruta_gff,
             sep="\s+",
@@ -26,10 +27,9 @@ def load_gff(ruta_gff):
                 "score", "strand", "phase", "attributes"
             ]
         )
-        # Convertir coordenadas a numéricas para evitar errores en el cálculo de longitud
+        # Convertir coordenadas a numéricas
         df_gff["coord_start"] = pd.to_numeric(df_gff["coord_start"], errors="coerce")
         df_gff["coord_end"] = pd.to_numeric(df_gff["coord_end"], errors="coerce")
-        # Eliminar filas con coordenadas no válidas
         df_gff = df_gff.dropna(subset=["coord_start", "coord_end"])
     except FileNotFoundError:
         raise FileNotFoundError(f"No se encontró archivo GFF: {ruta_gff}")
@@ -58,17 +58,10 @@ def average_length_by_type(df_gff):
     return avg_lengths
 
 # Clasificación por hebra
-def strand_classification(df_gff, dict_feature_type):
-    # Contar strands correctamente aunque algunas filas no tengan strand
+def strand_classification(df_gff):
     df_gff = df_gff[df_gff["strand"].isin(["+", "-"])]
-    strand_counts = df_gff.groupby(["feature_type", "strand"]).size().unstack(fill_value=0)
-    strand_classification = {}
-    for feature_type in dict_feature_type.keys():
-        if feature_type in strand_counts.index:
-            strand_classification[feature_type] = strand_counts.loc[feature_type].to_dict()
-        else:
-            strand_classification[feature_type] = {"+": 0, "-": 0} 
-    return strand_classification
+    strand_counts = df_gff["strand"].value_counts().to_dict()
+    return strand_counts
 
 
 # -------------------------------------- Main ------------------------------------------------
@@ -84,21 +77,18 @@ if __name__ == "__main__":
 
     counts = count_features_by_type(df_gff)
     avg_lengths = average_length_by_type(df_gff)
-    strand_stats = strand_classification(df_gff, counts)
+    strand_stats = strand_classification(df_gff)
 
-    stats = {}
-    for feature_type in counts:
-        stats[feature_type] = {
-            "count": counts[feature_type],
-            "average_length": avg_lengths.get(feature_type, 0),
-            "strand": strand_stats.get(feature_type, {})
-        }
+    # Crear diccionario final en formato JSON
+    stats = {
+        "total_features": len(df_gff),
+        "by_type": counts,
+        "avg_length": {k: round(v, 2) for k, v in avg_lengths.items()},
+        "strand_distribution": strand_stats
+    }
 
-    with open(args.output, "w") as out:
-        out.write("Feature_type\tCount\tAverage_length\tStrand+\tStrand-\n")
-        for feature, info in stats.items():
-            strand_plus = info["strand"].get("+", 0)
-            strand_minus = info["strand"].get("-", 0)
-            out.write(f"{feature}\t{info['count']}\t{info['average_length']:.2f}\t{strand_plus}\t{strand_minus}\n")
+    # Guardar JSON
+    with open(args.output, "w") as out_file:
+        json.dump(stats, out_file, indent=4)
 
     print("Cálculo completado. Resultados guardados en", args.output)
