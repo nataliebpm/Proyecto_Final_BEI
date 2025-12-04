@@ -1,0 +1,10 @@
+##gff-version 3
+chr1    source    gene    1      100    .    +    .    ID=gene1
+chr1    source    gene    150    300    .    -    .    ID=gene2
+chr1    source    CDS     10     90     .    +    0    Parent=gene1
+chr1    source    CDS     200    250    .    -    0    Parent=gene2
+chr1    source    mRNA    1      300    .    +    .    ID=mRNA1;Parent=gene1
+# Esto es un comentario y debe ignorarse
+chr1    source    gene    400    500    .    +    .    ID=gene3
+chr1    source    CDS     410    450    .    +    0    Parent=gene3
+chr1    source    CDS     460    490    .    -    0    Parent=gene3
