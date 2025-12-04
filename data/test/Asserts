@@ -1,0 +1,152 @@
+# -------------------------------------Librerías-----------------------------------------
+import pandas as pd
+import argparse
+import json
+
+
+# -------------------------------------- Funciones --------------------------------------
+
+# Cargar archivo GFF en un DataFrame de pandas
+def load_gff(ruta_gff):
+    """
+    Carga un archivo GFF en un DataFrame de pandas.
+    Ignora líneas que empiezan con # y convierte coordenadas a números.
+    """
+    try:
+        df_gff = pd.read_csv(
+            ruta_gff,
+            sep=r"\s+",
+            engine="python",
+            comment="#",
+            header=None,
+            names=[
+                "seqid", "source", "feature_type", "coord_start", "coord_end",
+                "score", "strand", "phase", "attributes"
+            ]
+        )
+        df_gff["coord_start"] = pd.to_numeric(df_gff["coord_start"], errors="coerce")
+        df_gff["coord_end"] = pd.to_numeric(df_gff["coord_end"], errors="coerce")
+        df_gff = df_gff.dropna(subset=["coord_start", "coord_end"])
+    except FileNotFoundError:
+        raise FileNotFoundError(f"No se encontró archivo GFF: {ruta_gff}")
+    return df_gff
+
+# Configuración del parser de argumentos
+def load_parser():
+    parser = argparse.ArgumentParser(description="Cálculo de estadísticas básicas de un archivo GFF.")
+    parser.add_argument("gff", type=str, help="Ruta del archivo GFF.")
+    parser.add_argument("output", type=str, help="Ruta del archivo de salida.")
+    parser.add_argument("--filter_type", type=str, help="Indica para cuáles Features quieres calcular estadísticas.")
+    return parser
+
+# Contar features por tipo
+def count_features_by_type(df_gff):
+    dict_feature_type = {}
+    for feature_type in df_gff["feature_type"].unique():
+        dict_feature_type[feature_type] = len(df_gff[df_gff["feature_type"] == feature_type])
+    return dict_feature_type
+
+# Calcular longitud promedio por tipo de feature
+def average_length_by_type(df_gff):
+    df_gff = df_gff.copy()
+    df_gff["length"] = df_gff["coord_end"] - df_gff["coord_start"] + 1
+    avg_lengths = df_gff.groupby("feature_type")["length"].mean().to_dict()
+    return avg_lengths
+
+# Clasificación por hebra global
+def strand_classification(df_gff):
+    df_gff = df_gff[df_gff["strand"].isin(["+", "-"])]
+    strand_counts = df_gff["strand"].value_counts().to_dict()
+    return strand_counts
+
+
+# -------------------------------------- Pruebas con asserts --------------------------------------
+def run_tests():
+    """
+    Pruebas automáticas para verificar que las funciones del script funcionan correctamente.
+    Cada prueba tiene un comentario explicando los datos de entrada, la función que se prueba y el resultado esperado.
+    """
+    
+    # ------------------- Prueba 1: Conteo por tipo -------------------
+    df_test1 = pd.DataFrame({
+        "seqid": ["chr1", "chr1", "chr1", "chr1"],
+        "source": ["src"]*4,
+        "feature_type": ["gene", "gene", "CDS", "CDS"],
+        "coord_start": [1, 100, 10, 200],
+        "coord_end": [50, 150, 60, 250],
+        "score": ["."]*4,
+        "strand": ["+", "-", "+", "-"],
+        "phase": ["."]*4,
+        "attributes": ["ID=g1", "ID=g2", "Parent=g1", "Parent=g2"]
+    })
+
+    counts = count_features_by_type(df_test1)
+    # Se esperan 2 genes y 2 CDS
+    assert counts["gene"] == 2, "Error: conteo de genes incorrecto"
+    assert counts["CDS"] == 2, "Error: conteo de CDS incorrecto"
+
+    # ------------------- Prueba 2: Longitud promedio por tipo -------------------
+    avg_len = average_length_by_type(df_test1)
+    # Genes: (50+51)/2 = 50.5
+    # CDS: (51+51)/2 = 51.0
+    assert avg_len["gene"] == 50.5, "Error: longitud promedio de genes incorrecta"
+    assert avg_len["CDS"] == 51.0, "Error: longitud promedio de CDS incorrecta"
+
+    # ------------------- Prueba 3: Distribución de strands -------------------
+    strands = strand_classification(df_test1)
+    # +: 2, -:2
+    assert strands["+"] == 2, "Error: conteo strand + incorrecto"
+    assert strands["-"] == 2, "Error: conteo strand - incorrecto"
+
+    # ------------------- Prueba 4: Filtrado por tipo -------------------
+    df_filtered = df_test1[df_test1["feature_type"] == "CDS"]
+    counts_filtered = count_features_by_type(df_filtered)
+    # Solo CDS: 2
+    assert counts_filtered.get("CDS", 0) == 2, "Error: filtrado por tipo CDS incorrecto"
+    # Genes no deben aparecer
+    assert "gene" not in counts_filtered, "Error: filtrado eliminó tipos incorrectamente"
+
+    # ------------------- Prueba 5: DataFrame vacío -------------------
+    df_empty = df_test1[df_test1["feature_type"] == "nonexistent"]
+    counts_empty = count_features_by_type(df_empty)
+    avg_len_empty = average_length_by_type(df_empty)
+    strands_empty = strand_classification(df_empty)
+    # Todo debe estar vacío
+    assert counts_empty == {}, "Error: conteo en DataFrame vacío no es {}"
+    assert avg_len_empty == {}, "Error: longitud promedio en DataFrame vacío no es {}"
+    assert strands_empty == {}, "Error: strand_distribution en DataFrame vacío no es {}"
+
+    print("Todas las pruebas pasaron correctamente.")
+
+
+# -------------------------------------- Main ------------------------------------------------
+if __name__ == "__main__":
+    # Ejecutar pruebas primero
+    run_tests()
+
+    # Argumentos del script
+    parser = load_parser()
+    args = parser.parse_args()
+
+    df_gff = load_gff(args.gff)
+
+    if args.filter_type:
+        df_gff = df_gff[df_gff["feature_type"] == args.filter_type]
+
+    counts = count_features_by_type(df_gff)
+    avg_lengths = average_length_by_type(df_gff)
+    strand_stats = strand_classification(df_gff)
+
+    # Crear diccionario final en formato JSON
+    stats = {
+        "total_features": len(df_gff),
+        "by_type": counts,
+        "avg_length": {k: round(v, 2) for k, v in avg_lengths.items()},
+        "strand_distribution": strand_stats
+    }
+
+    # Guardar JSON
+    with open(args.output, "w") as out_file:
+        json.dump(stats, out_file, indent=4)
+
+    print("Cálculo completado. Resultados guardados en", args.output)

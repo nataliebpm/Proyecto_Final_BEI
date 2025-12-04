@@ -1,0 +1,13 @@
+{
+    "total_features": 4,
+    "by_type": {
+        "CDS": 4
+    },
+    "avg_length": {
+        "CDS": 51.0
+    },
+    "strand_distribution": {
+        "+": 2,
+        "-": 2
+    }
+}
