@@ -1,10 +1,10 @@
-# ---------------------------------- Metadatos ----------------------------------
+# ---------------------------------- Metadatos ------------------------------------------
 
 "title:  Borrador de script para extraer genes de un archivo de datos genómicos usando argparse y pandas"
 "author: Natalie B. Pineda Morán"
 "date: 03 diciembre 2025"
 
-# -------------------------------------Librerías-------------------------------------
+# -------------------------------------Librerías-----------------------------------------
 import pandas as pd
 import argparse 
 
@@ -62,7 +62,7 @@ def strand_classification(df_gff, dict_feature_type):
     return strand_classification
 
 
-# -------------------------------------- Main --------------------------------------
+# -------------------------------------- Main ------------------------------------------------
 
 if __name__ == "__main__":
     parser = load_parser()
